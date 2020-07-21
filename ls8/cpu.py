@@ -75,3 +75,29 @@ class CPU:
         address = self.ram[pc + 1]
         write = self.ram[pc + 2]
         self.ram[address] = write
+
+    def load_file(self):
+
+        if len(sys.argv) < 2:
+            print("No program specified. Please specify a program.")
+            sys.exit(1)
+
+        address = 0
+
+        with open(sys.argv[1]) as f:
+            for line in f:
+                string_val = line.split("#")[0].strip()
+                if string_val == '':
+                    continue
+                v = int(string_val, 2)
+                self.ram[address] = v
+                address += 1
+
+    def halt(self):
+        sys.exit()
+
+    def ldi(self):
+        self.pc += 1
+        index = self.ram[self.pc]
+        self.reg[index] = self.ram[self.pc + 1]
+        self.pc += 2
