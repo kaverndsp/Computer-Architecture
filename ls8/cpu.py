@@ -2,6 +2,20 @@
 
 import sys
 
+OP1 = 0b00000001
+OP2 = 0b10000010
+OP3 = 0b01000101
+OP4 = 0b10100010
+OP5 = 0b01000111
+OP6 = 0b01000110
+OP7 = 0b01010000
+OP8 = 0b00010001
+OP9 = 0b10100000
+OP10 = 0b10100111
+OP11 = 0b01010100
+OP12 = 0b01010110
+OP13 = 0b01010101
+
 
 class CPU:
     """Main CPU class."""
@@ -10,27 +24,33 @@ class CPU:
         self.reg = [0] * 8
         self.ram = [0] * 256
         self.pc = 0
+        self.sp = 7
+        self.fl_reg = 0b00000000
+        self.branchtable = {}
+        self.branchtable[OP1] = self.halt
+        self.branchtable[OP2] = self.ldi
+        self.branchtable[OP3] = self.push
+        self.branchtable[OP4] = self.mult
+        self.branchtable[OP5] = self.prn
+        self.branchtable[OP6] = self.pop
 
     def load(self):
         """Load a program into memory."""
 
+        if len(sys.argv) < 2:
+            print("No program specified. Please specify a program.")
+            sys.exit(1)
+
         address = 0
 
-        # For now, we've just hardcoded a program:
-
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b00000001,  # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        with open(sys.argv[1]) as f:
+            for line in f:
+                string_val = line.split("#")[0].strip()
+                if string_val == '':
+                    continue
+                v = int(string_val, 2)
+                self.ram[address] = v
+                address += 1
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -62,36 +82,17 @@ class CPU:
         print()
 
     def run(self):
-        running = True
+        """Run the CPU."""
+        halted = False
+        while not halted:
+            process = self.ram[self.pc]
+            self.branchtable[process]()
 
-        while running is True:
-            pass
+    def ram_read(self, address):
+        return self.ram[address]
 
-    def ram_read(self, pc):
-        self.pc += 1
-        return self.ram[pc]
-
-    def ram_write(self, pc):
-        address = self.ram[pc + 1]
-        write = self.ram[pc + 2]
-        self.ram[address] = write
-
-    def load_file(self):
-
-        if len(sys.argv) < 2:
-            print("No program specified. Please specify a program.")
-            sys.exit(1)
-
-        address = 0
-
-        with open(sys.argv[1]) as f:
-            for line in f:
-                string_val = line.split("#")[0].strip()
-                if string_val == '':
-                    continue
-                v = int(string_val, 2)
-                self.ram[address] = v
-                address += 1
+    def ram_write(self, address, value):
+        self.ram[address] = value
 
     def halt(self):
         sys.exit()
@@ -101,3 +102,30 @@ class CPU:
         index = self.ram[self.pc]
         self.reg[index] = self.ram[self.pc + 1]
         self.pc += 2
+
+    def push(self):
+        self.reg[self.sp] -= 1
+        index = self.ram[self.pc + 1]
+        val = self.reg[index]
+        self.ram[self.reg[self.sp]] = val
+        self.pc += 2
+
+    def pop(self):
+        val = self.ram[self.reg[self.sp]]
+        self.reg[self.ram[self.pc + 1]] = val
+        self.reg[self.sp] += 1
+        self.pc += 2
+
+    def mult(self):
+        self.pc += 1
+        operand1 = self.reg[self.ram[self.pc]]
+        self.pc += 1
+        operand2 = self.reg[self.ram[self.pc]]
+        self.reg[self.ram[self.pc - 1]] = operand1 * operand2
+        self.pc += 1
+
+    def prn(self):
+        self.pc += 1
+        index = self.ram[self.pc]
+        print(self.reg[index])
+        self.pc += 1
