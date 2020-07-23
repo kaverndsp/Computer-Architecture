@@ -2,6 +2,7 @@
 
 import sys
 
+
 OP1 = 0b00000001
 OP2 = 0b10000010
 OP3 = 0b01000101
@@ -21,8 +22,9 @@ class CPU:
     """Main CPU class."""
 
     def __init__(self):
-        self.reg = [0] * 8
+        """Construct a new CPU."""
         self.ram = [0] * 256
+        self.reg = [0, 0, 0, 0, 0, 0, 0, 0xF4]
         self.pc = 0
         self.sp = 7
         self.fl_reg = 0b00000000
@@ -33,6 +35,98 @@ class CPU:
         self.branchtable[OP4] = self.mult
         self.branchtable[OP5] = self.prn
         self.branchtable[OP6] = self.pop
+        self.branchtable[OP7] = self.call
+        self.branchtable[OP8] = self.ret
+        self.branchtable[OP9] = self.add
+        self.branchtable[OP10] = self.compare
+        self.branchtable[OP11] = self.jmp
+        self.branchtable[OP12] = self.jne
+        self.branchtable[OP13] = self.jeq
+
+    def halt(self):
+        sys.exit()
+
+    def ldi(self):
+        self.pc += 1
+        index = self.ram[self.pc]
+        self.reg[index] = self.ram[self.pc + 1]
+        self.pc += 2
+
+    def push(self):
+        self.reg[self.sp] -= 1
+        index = self.ram[self.pc + 1]
+        val = self.reg[index]
+        self.ram[self.reg[self.sp]] = val
+        self.pc += 2
+
+    def mult(self):
+        self.pc += 1
+        operand1 = self.reg[self.ram[self.pc]]
+        self.pc += 1
+        operand2 = self.reg[self.ram[self.pc]]
+        self.reg[self.ram[self.pc - 1]] = operand1 * operand2
+        self.pc += 1
+
+    def prn(self):
+        self.pc += 1
+        index = self.ram[self.pc]
+        print(self.reg[index])
+        self.pc += 1
+
+    def pop(self):
+        val = self.ram[self.reg[self.sp]]
+        self.reg[self.ram[self.pc + 1]] = val
+        self.reg[self.sp] += 1
+        self.pc += 2
+
+    def call(self):
+        return_address = self.pc + 2
+        self.reg[self.sp] -= 1
+        self.ram[self.reg[self.sp]] = return_address
+        self.pc = self.reg[self.ram[self.pc + 1]]
+
+    def ret(self):
+        return_addr = self.ram[self.reg[self.sp]]
+        self.reg[self.sp] += 1
+        self.pc = return_addr
+
+    def add(self):
+        operand1 = self.reg[self.ram[self.pc + 1]]
+        operand2 = self.reg[self.ram[self.pc + 2]]
+        self.reg[self.ram[self.pc + 1]] = operand1 + operand2
+        self.pc += 3
+
+    def compare(self):
+        if self.reg[self.ram[self.pc + 1]] == self.reg[self.ram[self.pc + 2]]:
+            self.fl_reg = 0b00000001
+            self.pc += 3
+        elif self.reg[self.ram[self.pc + 1]] < self.reg[self.ram[self.pc + 2]]:
+            self.fl_reg = 0b00000100
+            self.pc += 3
+        elif self.reg[self.ram[self.pc + 1]] > self.reg[self.ram[self.pc + 2]]:
+            self.fl_reg = 0b00000010
+            self.pc += 3
+
+    def jmp(self):
+        self.pc = self.reg[self.ram[self.pc + 1]]
+
+    def jne(self):
+        if self.fl_reg != 0b00000001:
+            self.pc = self.reg[self.ram[self.pc + 1]]
+        else:
+            self.pc += 2
+
+    def jeq(self):
+        if self.fl_reg == 0b00000001:
+            self.pc = self.reg[self.ram[self.pc + 1]]
+        else:
+            self.pc += 2
+
+    def ram_read(self, address):
+        return self.ram[address]
+
+    def ram_write(self, value, address):
+        self.ram[address] = value
 
     def load(self):
         """Load a program into memory."""
@@ -87,45 +181,3 @@ class CPU:
         while not halted:
             process = self.ram[self.pc]
             self.branchtable[process]()
-
-    def ram_read(self, address):
-        return self.ram[address]
-
-    def ram_write(self, address, value):
-        self.ram[address] = value
-
-    def halt(self):
-        sys.exit()
-
-    def ldi(self):
-        self.pc += 1
-        index = self.ram[self.pc]
-        self.reg[index] = self.ram[self.pc + 1]
-        self.pc += 2
-
-    def push(self):
-        self.reg[self.sp] -= 1
-        index = self.ram[self.pc + 1]
-        val = self.reg[index]
-        self.ram[self.reg[self.sp]] = val
-        self.pc += 2
-
-    def pop(self):
-        val = self.ram[self.reg[self.sp]]
-        self.reg[self.ram[self.pc + 1]] = val
-        self.reg[self.sp] += 1
-        self.pc += 2
-
-    def mult(self):
-        self.pc += 1
-        operand1 = self.reg[self.ram[self.pc]]
-        self.pc += 1
-        operand2 = self.reg[self.ram[self.pc]]
-        self.reg[self.ram[self.pc - 1]] = operand1 * operand2
-        self.pc += 1
-
-    def prn(self):
-        self.pc += 1
-        index = self.ram[self.pc]
-        print(self.reg[index])
-        self.pc += 1
